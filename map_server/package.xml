@@ -21,6 +21,7 @@
     <depend>bullet</depend>
     <depend>nav_msgs</depend>
     <depend>roscpp</depend>
+    <depend>roslib</depend>
     <depend>sdl</depend>
     <depend>sdl-image</depend>
     <depend>tf2</depend>

@@ -44,6 +44,7 @@
 #include "ros/console.h"
 #include "map_server/image_loader.h"
 #include "nav_msgs/MapMetaData.h"
+#include "nav_msgs/LoadMap.h"
 #include "yaml-cpp/yaml.h"
 
 #ifdef HAVE_YAMLCPP_GT_0_5_0
@@ -72,6 +73,9 @@ class MapServer
 
       //When called this service returns a copy of the current map
       service = n.advertiseService("static_map", &MapServer::mapCallback, this);
+
+      //Change the currently published map
+      change_map_srv_ = n.advertiseService("change_map", &MapServer::changeMapCallback, this);
       
       // Latched publisher for metadata
       metadata_pub = n.advertise<nav_msgs::MapMetaData>("map_metadata", 1, true);
@@ -98,6 +102,7 @@ class MapServer
     ros::Publisher map_pub;
     ros::Publisher metadata_pub;
     ros::ServiceServer service;
+    ros::ServiceServer change_map_srv_;
     bool deprecated;
     std::string frame_id_;
 
@@ -111,6 +116,22 @@ class MapServer
       res = map_resp_;
       ROS_INFO("Sending map");
 
+      return true;
+    }
+
+    /** Callback invoked when someone requests to change the map */
+    bool changeMapCallback(nav_msgs::LoadMap::Request  &request,
+                           nav_msgs::LoadMap::Response &response )
+    {
+      if (loadMapFromYaml(request.map_url))
+      {
+        response.result = response.RESULT_SUCCESS;
+      }
+      else
+      {
+        response.result = response.RESULT_UNDEFINED_FAILURE;
+      }
+      ROS_INFO("Changed map to %s", request.map_url.c_str());
       return true;
     }
 
