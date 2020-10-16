@@ -497,9 +497,7 @@ AmclNode::AmclNode() :
                                                    this, _1));
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
 
-  if(activate_landmark_augmentation_){
-    landmark_loc_pose_sub_ = nh_.subscribe("/landmark_loc/pose", 2, &AmclNode::augmentedPoseReceived, this);
-  }
+  landmark_loc_pose_sub_ = nh_.subscribe("/landmark_loc/pose", 2, &AmclNode::augmentedPoseReceived, this);
 
   if(use_map_topic_) {
     map_sub_ = nh_.subscribe("map", 1, &AmclNode::mapReceived, this);
@@ -598,6 +596,7 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
   alpha_slow_ = config.recovery_alpha_slow;
   alpha_fast_ = config.recovery_alpha_fast;
   tf_broadcast_ = config.tf_broadcast;
+  activate_landmark_augmentation_ = config.activate_landmark_augmentation;
 
   do_beamskip_= config.do_beamskip;
   beam_skip_distance_ = config.beam_skip_distance;

@@ -268,33 +268,17 @@ void pf_update_action(pf_t *pf, pf_action_model_fn_t action_fn, void *action_dat
 double multi_variable_gaussian(double landmark_loc_pose[3], double covariances[3], double x, double y, double yaw)
 {
   // TODO : Get those sigma from the covariance
-  double sigmaPose = 0.5;
-  double sigmaOrient = 0.5;
-  // Replace once the covariance from landmark_loc is reliable
-  // double sigmaX = covariances[0];
-  // double sigmaY = covariances[1];
-  // double sigmaYaw = covariances[2];
+  double sigmaPose = 1.0;
+  double sigmaOrient = 0.01;
 
-  double muX = landmark_loc_pose[0];
-  double muY = landmark_loc_pose[1];
-  double muYaw = landmark_loc_pose[2];
+  double dX = abs(x-landmark_loc_pose[0]);
+  double dY = abs(y-landmark_loc_pose[1]);
+  double dYaw = abs(yaw-landmark_loc_pose[2]);
   // cf http://blog.sarantop.com/notes/mvn
-  // double exponential_value = exp(-0.5*(((x-muX)/sigmaPose)+((y-muY)/sigmaPose)+((x-muYaw)/sigmaOrient)));
-  // double coeff = (pow(2*M_PI,3/2)*pow(sigmaPose,2)*sigmaOrient);
-  double exponential_value = exp(-0.5*(((x-muX)/sigmaPose)+((y-muY)/sigmaPose)+((yaw-muYaw)/sigmaOrient)));
-  double coeff = (pow(2*M_PI,3/2)*pow(sigmaPose,2)*sigmaOrient);
+  double exponential_value = exp(-0.5*((dX/sigmaPose)+(dY/sigmaPose)+(dYaw/sigmaOrient)));
+  double coeff = pow(2*M_PI,3/2)*pow(sigmaPose,2)*sigmaOrient;
 
-  return coeff*exponential_value;
-}
-
-double metric_between_pose(double landmark_loc_pose[3], double x, double y, double yaw){
-  double coeff_dist = 0.1;
-  double coeff_orient = 2.0;
-  double dx = landmark_loc_pose[0] - x;
-  double dy = landmark_loc_pose[1] - y;
-  double dyaw = landmark_loc_pose[2] - yaw;
-
-  return coeff_dist*(pow(dx,2)+pow(dy,2)) + coeff_orient*dyaw;
+  return exponential_value/coeff;
 }
 
 // Update the filter with some new sensor observation
@@ -322,13 +306,9 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       double new_total = 0.0;
       for (i = 0; i < set->sample_count; i++)
       {
-        if(i==400){
-          printf("\nparticle pose (x,y,yaw)=(%f,%f,%f)",sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
-        }
         sample = set->samples + i;
         sample->weight /= total;
         sample->weight *= multi_variable_gaussian(landmark_loc_pose,covariances, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
-        // sample->weight *= metric_between_pose(landmark_loc_pose, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
         new_total += sample->weight;
       }
       for (i = 0; i < set->sample_count; i++)
