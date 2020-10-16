@@ -30,7 +30,10 @@
 #define AMCL_LASER_H
 
 #include "amcl_sensor.h"
+#include "geometry_msgs/Vector3.h"
 #include "../map/map.h"
+// For the landmark localization
+#include <landmark_loc/landmark_loc.h>
 
 namespace amcl
 {
@@ -61,7 +64,7 @@ class AMCLLaser : public AMCLSensor
   // Default constructor
   public: AMCLLaser(size_t max_beams, map_t* map);
 
-  public: virtual ~AMCLLaser(); 
+  public: virtual ~AMCLLaser();
 
   public: void SetModelBeam(double z_hit,
                             double z_short,
@@ -80,29 +83,29 @@ class AMCLLaser : public AMCLSensor
   public: void SetModelLikelihoodFieldProb(double z_hit,
 					   double z_rand,
 					   double sigma_hit,
-					   double max_occ_dist, 
-					   bool do_beamskip, 
-					   double beam_skip_distance, 
-					   double beam_skip_threshold, 
+					   double max_occ_dist,
+					   bool do_beamskip,
+					   double beam_skip_distance,
+					   double beam_skip_threshold,
 					   double beam_skip_error_threshold);
 
   // Update the filter based on the sensor model.  Returns true if the
   // filter has been updated.
-  public: virtual bool UpdateSensor(pf_t *pf, AMCLSensorData *data);
+  public: virtual bool UpdateSensor(pf_t *pf, AMCLSensorData *data, geometry_msgs::PoseWithCovarianceStamped landmark_loc_pose = geometry_msgs::PoseWithCovarianceStamped());
 
   // Set the laser's pose after construction
-  public: void SetLaserPose(pf_vector_t& laser_pose) 
+  public: void SetLaserPose(pf_vector_t& laser_pose)
           {this->laser_pose = laser_pose;}
 
   // Determine the probability for the given pose
-  private: static double BeamModel(AMCLLaserData *data, 
+  private: static double BeamModel(AMCLLaserData *data,
                                    pf_sample_set_t* set);
   // Determine the probability for the given pose
-  private: static double LikelihoodFieldModel(AMCLLaserData *data, 
+  private: static double LikelihoodFieldModel(AMCLLaserData *data,
                                               pf_sample_set_t* set);
 
-  // Determine the probability for the given pose - more probablistic model 
-  private: static double LikelihoodFieldModelProb(AMCLLaserData *data, 
+  // Determine the probability for the given pose - more probablistic model
+  private: static double LikelihoodFieldModelProb(AMCLLaserData *data,
 					     pf_sample_set_t* set);
 
   private: void reallocTempData(int max_samples, int max_obs);
@@ -117,16 +120,16 @@ class AMCLLaser : public AMCLSensor
 
   // Laser offset relative to robot
   private: pf_vector_t laser_pose;
-  
+
   // Max beams to consider
   private: int max_beams;
 
   // Beam skipping parameters (used by LikelihoodFieldModelProb model)
-  private: bool do_beamskip; 
-  private: double beam_skip_distance; 
-  private: double beam_skip_threshold; 
-  //threshold for the ratio of invalid beams - at which all beams are integrated to the likelihoods 
-  //this would be an error condition 
+  private: bool do_beamskip;
+  private: double beam_skip_distance;
+  private: double beam_skip_threshold;
+  //threshold for the ratio of invalid beams - at which all beams are integrated to the likelihoods
+  //this would be an error condition
   private: double beam_skip_error_threshold;
 
   //temp data that is kept before observations are integrated to each particle (requried for beam skipping)
