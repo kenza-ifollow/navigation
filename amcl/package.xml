@@ -27,6 +27,7 @@
 
     <build_depend>message_filters</build_depend>
     <build_depend>tf2_geometry_msgs</build_depend>
+    <build_depend>landmark_loc</build_depend>
 
     <depend>diagnostic_updater</depend>
     <depend>dynamic_reconfigure</depend>
@@ -34,6 +35,7 @@
     <depend>nav_msgs</depend>
     <depend>rosbag</depend>
     <depend>roscpp</depend>
+    <!-- <depend>landmark_loc</depend> -->
     <depend>sensor_msgs</depend>
     <depend>std_srvs</depend>
     <depend>tf2</depend>

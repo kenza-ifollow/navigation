@@ -3,7 +3,6 @@ project(amcl)
 
 include(CheckIncludeFile)
 include(CheckSymbolExists)
-
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 11)
 endif()
@@ -23,6 +22,7 @@ find_package(catkin REQUIRED
     tf2_geometry_msgs
     tf2_msgs
     tf2_ros
+    landmark_loc
 )
 
 find_package(Boost REQUIRED)
@@ -82,6 +82,7 @@ add_library(amcl_sensors
                     src/amcl/sensors/amcl_sensor.cpp
                     src/amcl/sensors/amcl_odom.cpp
                     src/amcl/sensors/amcl_laser.cpp)
+
 target_link_libraries(amcl_sensors amcl_map amcl_pf)
 
 

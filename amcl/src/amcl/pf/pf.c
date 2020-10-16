@@ -51,7 +51,7 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf_t *pf;
   pf_sample_set_t *set;
   pf_sample_t *sample;
-  
+
   srand48(time(NULL));
 
   pf = calloc(1, sizeof(pf_t));
@@ -69,16 +69,16 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   // distrubition will be less than [err].
   pf->pop_err = 0.01;
   pf->pop_z = 3;
-  pf->dist_threshold = 0.5; 
+  pf->dist_threshold = 0.5;
 
   // Number of leaf nodes is never higher than the max number of samples
   pf->limit_cache = calloc(max_samples, sizeof(int));
-  
+
   pf->current_set = 0;
   for (j = 0; j < 2; j++)
   {
     set = pf->sets + j;
-      
+
     set->sample_count = max_samples;
     set->samples = calloc(max_samples, sizeof(pf_sample_t));
 
@@ -128,7 +128,7 @@ void pf_free(pf_t *pf)
     free(pf->sets[i].samples);
   }
   free(pf);
-  
+
   return;
 }
 
@@ -139,16 +139,16 @@ void pf_init(pf_t *pf, pf_vector_t mean, pf_matrix_t cov)
   pf_sample_set_t *set;
   pf_sample_t *sample;
   pf_pdf_gaussian_t *pdf;
-  
+
   set = pf->sets + pf->current_set;
-  
+
   // Create the kd tree for adaptive sampling
   pf_kdtree_clear(set->kdtree);
 
   set->sample_count = pf->max_samples;
 
   pdf = pf_pdf_gaussian_alloc(mean, cov);
-    
+
   // Compute the new sample poses
   for (i = 0; i < set->sample_count; i++)
   {
@@ -163,9 +163,9 @@ void pf_init(pf_t *pf, pf_vector_t mean, pf_matrix_t cov)
   pf->w_slow = pf->w_fast = 0.0;
 
   pf_pdf_gaussian_free(pdf);
-    
+
   // Re-compute cluster statistics
-  pf_cluster_stats(pf, set); 
+  pf_cluster_stats(pf, set);
 
   //set converged to 0
   pf_init_converged(pf);
@@ -203,7 +203,7 @@ void pf_init_model(pf_t *pf, pf_init_model_fn_t init_fn, void *init_data)
 
   // Re-compute cluster statistics
   pf_cluster_stats(pf, set);
-  
+
   //set converged to 0
   pf_init_converged(pf);
 
@@ -213,8 +213,8 @@ void pf_init_model(pf_t *pf, pf_init_model_fn_t init_fn, void *init_data)
 void pf_init_converged(pf_t *pf){
   pf_sample_set_t *set;
   set = pf->sets + pf->current_set;
-  set->converged = 0; 
-  pf->converged = 0; 
+  set->converged = 0;
+  pf->converged = 0;
 }
 
 int pf_update_converged(pf_t *pf)
@@ -235,19 +235,19 @@ int pf_update_converged(pf_t *pf)
   }
   mean_x /= set->sample_count;
   mean_y /= set->sample_count;
-  
+
   for (i = 0; i < set->sample_count; i++){
     sample = set->samples + i;
-    if(fabs(sample->pose.v[0] - mean_x) > pf->dist_threshold || 
+    if(fabs(sample->pose.v[0] - mean_x) > pf->dist_threshold ||
        fabs(sample->pose.v[1] - mean_y) > pf->dist_threshold){
-      set->converged = 0; 
-      pf->converged = 0; 
+      set->converged = 0;
+      pf->converged = 0;
       return 0;
     }
   }
-  set->converged = 1; 
-  pf->converged = 1; 
-  return 1; 
+  set->converged = 1;
+  pf->converged = 1;
+  return 1;
 }
 
 // Update the filter with some new action
@@ -258,14 +258,47 @@ void pf_update_action(pf_t *pf, pf_action_model_fn_t action_fn, void *action_dat
   set = pf->sets + pf->current_set;
 
   (*action_fn) (action_data, set);
-  
+
   return;
 }
 
 
 #include <float.h>
+
+double multi_variable_gaussian(double landmark_loc_pose[3], double covariances[3], double x, double y, double yaw)
+{
+  // TODO : Get those sigma from the covariance
+  double sigmaPose = 0.5;
+  double sigmaOrient = 0.5;
+  // Replace once the covariance from landmark_loc is reliable
+  // double sigmaX = covariances[0];
+  // double sigmaY = covariances[1];
+  // double sigmaYaw = covariances[2];
+
+  double muX = landmark_loc_pose[0];
+  double muY = landmark_loc_pose[1];
+  double muYaw = landmark_loc_pose[2];
+  // cf http://blog.sarantop.com/notes/mvn
+  // double exponential_value = exp(-0.5*(((x-muX)/sigmaPose)+((y-muY)/sigmaPose)+((x-muYaw)/sigmaOrient)));
+  // double coeff = (pow(2*M_PI,3/2)*pow(sigmaPose,2)*sigmaOrient);
+  double exponential_value = exp(-0.5*(((x-muX)/sigmaPose)+((y-muY)/sigmaPose)+((yaw-muYaw)/sigmaOrient)));
+  double coeff = (pow(2*M_PI,3/2)*pow(sigmaPose,2)*sigmaOrient);
+
+  return coeff*exponential_value;
+}
+
+double metric_between_pose(double landmark_loc_pose[3], double x, double y, double yaw){
+  double coeff_dist = 0.1;
+  double coeff_orient = 2.0;
+  double dx = landmark_loc_pose[0] - x;
+  double dy = landmark_loc_pose[1] - y;
+  double dyaw = landmark_loc_pose[2] - yaw;
+
+  return coeff_dist*(pow(dx,2)+pow(dy,2)) + coeff_orient*dyaw;
+}
+
 // Update the filter with some new sensor observation
-void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_data)
+void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_data, double landmark_loc_pose[3], double covariances[3])
 {
   int i;
   pf_sample_set_t *set;
@@ -278,16 +311,28 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
   total = (*sensor_fn) (sensor_data, set);
 
   set->n_effective = 0;
-  
+
   if (total > 0.0)
   {
     // Normalize weights
     double w_avg=0.0;
+    double new_total = 0.0;
+    for (i = 0; i < set->sample_count; i++)
+    {
+      if(i==400){
+        printf("\nparticle pose (x,y,yaw)=(%f,%f,%f)",sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+      }
+      sample = set->samples + i;
+      sample->weight /= total;
+      sample->weight *= multi_variable_gaussian(landmark_loc_pose,covariances, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+      // sample->weight *= metric_between_pose(landmark_loc_pose, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+      new_total += sample->weight;
+    }
     for (i = 0; i < set->sample_count; i++)
     {
       sample = set->samples + i;
       w_avg += sample->weight;
-      sample->weight /= total;
+      sample->weight /= new_total;
       set->n_effective += sample->weight*sample->weight;
     }
     // Update running averages of likelihood of samples (Prob Rob p258)
@@ -300,7 +345,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       pf->w_fast = w_avg;
     else
       pf->w_fast += pf->alpha_fast * (w_avg - pf->w_fast);
-    //printf("w_avg: %e slow: %e fast: %e\n", 
+    //printf("w_avg: %e slow: %e fast: %e\n",
            //w_avg, pf->w_slow, pf->w_fast);
   }
   else
@@ -403,7 +448,7 @@ void pf_update_resample(pf_t *pf)
 
   // Create the kd tree for adaptive sampling
   pf_kdtree_clear(set_b->kdtree);
-  
+
   // Draw samples from set a to create set b.
   total = 0;
   set_b->sample_count = 0;
@@ -483,7 +528,7 @@ void pf_update_resample(pf_t *pf)
     if (set_b->sample_count > pf_resample_limit(pf, set_b->kdtree->leaf_count))
       break;
   }
-  
+
   // Reset averages, to avoid spiraling off into complete randomness.
   if(w_diff > 0.0)
     pf->w_slow = pf->w_fast = 0.0;
@@ -496,12 +541,12 @@ void pf_update_resample(pf_t *pf)
     sample_b = set_b->samples + i;
     sample_b->weight /= total;
   }
-  
+
   // Re-compute cluster statistics
   pf_cluster_stats(pf, set_b);
 
   // Use the newly created sample set
-  pf->current_set = (pf->current_set + 1) % 2; 
+  pf->current_set = (pf->current_set + 1) % 2;
 
   pf_update_converged(pf);
 
@@ -549,7 +594,7 @@ int pf_resample_limit(pf_t *pf, int k)
     pf->limit_cache[k-1] = pf->max_samples;
     return pf->max_samples;
   }
-  
+
   pf->limit_cache[k-1] = n;
   return n;
 }
@@ -561,7 +606,7 @@ void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set)
   int i, j, k, cidx;
   pf_sample_t *sample;
   pf_cluster_t *cluster;
-  
+
   // Workspace
   double m[4], c[2][2];
   size_t count;
@@ -569,7 +614,7 @@ void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set)
 
   // Cluster the samples
   pf_kdtree_cluster(set->kdtree);
-  
+
   // Initialize cluster stats
   set->cluster_count = 0;
 
@@ -598,7 +643,7 @@ void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set)
   for (j = 0; j < 2; j++)
     for (k = 0; k < 2; k++)
       c[j][k] = 0.0;
-  
+
   // Compute cluster stats
   for (i = 0; i < set->sample_count; i++)
   {
@@ -613,7 +658,7 @@ void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set)
       continue;
     if (cidx + 1 > set->cluster_count)
       set->cluster_count = cidx + 1;
-    
+
     cluster = set->clusters + cidx;
 
     cluster->count += 1;
@@ -646,7 +691,7 @@ void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set)
   for (i = 0; i < set->cluster_count; i++)
   {
     cluster = set->clusters + i;
-        
+
     cluster->mean.v[0] = cluster->m[0] / cluster->weight;
     cluster->mean.v[1] = cluster->m[1] / cluster->weight;
     cluster->mean.v[2] = atan2(cluster->m[3], cluster->m[2]);
@@ -698,14 +743,14 @@ void pf_get_cep_stats(pf_t *pf, pf_vector_t *mean, double *var)
   double mn, mx, my, mrr;
   pf_sample_set_t *set;
   pf_sample_t *sample;
-  
+
   set = pf->sets + pf->current_set;
 
   mn = 0.0;
   mx = 0.0;
   my = 0.0;
   mrr = 0.0;
-  
+
   for (i = 0; i < set->sample_count; i++)
   {
     sample = set->samples + i;
@@ -746,5 +791,3 @@ int pf_get_cluster_stats(pf_t *pf, int clabel, double *weight,
 
   return 1;
 }
-
-
