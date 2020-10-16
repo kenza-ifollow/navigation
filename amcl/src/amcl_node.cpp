@@ -195,6 +195,7 @@ class AmclNode
     std::string global_frame_id_;
 
     bool use_map_topic_;
+    bool activate_landmark_augmentation_;
     bool first_map_only_;
 
     ros::Duration gui_publish_period;
@@ -365,6 +366,7 @@ AmclNode::AmclNode() :
 
   // Grab params off the param server
   private_nh_.param("use_map_topic", use_map_topic_, false);
+  private_nh_.param("activate_landmark_augmentation", activate_landmark_augmentation_, false);
   private_nh_.param("first_map_only", first_map_only_, false);
 
   double tmp;
@@ -494,7 +496,10 @@ AmclNode::AmclNode() :
   laser_scan_filter_->registerCallback(boost::bind(&AmclNode::laserReceived,
                                                    this, _1));
   initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
-  landmark_loc_pose_sub_ = nh_.subscribe("/landmark_loc/pose", 2, &AmclNode::augmentedPoseReceived, this);
+
+  if(activate_landmark_augmentation_){
+    landmark_loc_pose_sub_ = nh_.subscribe("/landmark_loc/pose", 2, &AmclNode::augmentedPoseReceived, this);
+  }
 
   if(use_map_topic_) {
     map_sub_ = nh_.subscribe("map", 1, &AmclNode::mapReceived, this);
@@ -1318,7 +1323,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     }
 
     // Compute position thanks to landmark localization
-    lasers_[laser_index]->UpdateSensor(pf_, (AMCLSensorData*)&ldata, landmark_loc_pose_);
+    lasers_[laser_index]->UpdateSensor(pf_, (AMCLSensorData*)&ldata,activate_landmark_augmentation_,landmark_loc_pose_);
 
     lasers_update_[laser_index] = false;
 
