@@ -138,15 +138,23 @@ AMCLLaser::SetModelLikelihoodFieldProb(double z_hit,
 //   return true;
 // }
 
-bool AMCLLaser::UpdateSensor(pf_t *pf, AMCLSensorData *data, geometry_msgs::PoseWithCovarianceStamped landmark_loc_pose)
+bool AMCLLaser::UpdateSensor(pf_t *pf, AMCLSensorData *data, bool amcl_augmentation, geometry_msgs::PoseWithCovarianceStamped landmark_loc_pose)
 {
   if (this->max_beams < 2)
     return false;
 
+	double current_pose[3] = {0,0,0};
+	double covariances[3] = {-1,-1,-1};
+
 	// Convert landmark_loc_pose in type c-friendly
-	double current_pose[3] = {landmark_loc_pose.pose.pose.position.x,landmark_loc_pose.pose.pose.position.y,tf2::getYaw(landmark_loc_pose.pose.pose.orientation)};
-	double covariances[3] = {landmark_loc_pose.pose.covariance[0],landmark_loc_pose.pose.covariance[3],landmark_loc_pose.pose.covariance[5]};
-	//double covariances[3] = {0.1,0.1,0.5};
+	if (amcl_augmentation){
+		current_pose[0] = landmark_loc_pose.pose.pose.position.x;
+		current_pose[1] = landmark_loc_pose.pose.pose.position.y;
+		current_pose[2] = tf2::getYaw(landmark_loc_pose.pose.pose.orientation);
+		covariances[0] = landmark_loc_pose.pose.covariance[0];
+		covariances[1] = landmark_loc_pose.pose.covariance[3];
+		covariances[2] = landmark_loc_pose.pose.covariance[5];
+	}
 
   // Apply the laser sensor model
   if(this->model_type == LASER_MODEL_BEAM)

@@ -314,26 +314,41 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
 
   if (total > 0.0)
   {
-    // Normalize weights
     double w_avg=0.0;
-    double new_total = 0.0;
-    for (i = 0; i < set->sample_count; i++)
+    // Indicates that amcl should not be augmented
+    if(covariances[0] != -1)
     {
-      if(i==400){
-        printf("\nparticle pose (x,y,yaw)=(%f,%f,%f)",sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+      // Normalize weights and integrate landmark loc position
+      double new_total = 0.0;
+      for (i = 0; i < set->sample_count; i++)
+      {
+        if(i==400){
+          printf("\nparticle pose (x,y,yaw)=(%f,%f,%f)",sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+        }
+        sample = set->samples + i;
+        sample->weight /= total;
+        sample->weight *= multi_variable_gaussian(landmark_loc_pose,covariances, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+        // sample->weight *= metric_between_pose(landmark_loc_pose, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
+        new_total += sample->weight;
       }
-      sample = set->samples + i;
-      sample->weight /= total;
-      sample->weight *= multi_variable_gaussian(landmark_loc_pose,covariances, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
-      // sample->weight *= metric_between_pose(landmark_loc_pose, sample->pose.v[0],sample->pose.v[1],sample->pose.v[2]);
-      new_total += sample->weight;
+      for (i = 0; i < set->sample_count; i++)
+      {
+        sample = set->samples + i;
+        w_avg += sample->weight;
+        sample->weight /= new_total;
+        set->n_effective += sample->weight*sample->weight;
+      }
     }
-    for (i = 0; i < set->sample_count; i++)
+    else
     {
-      sample = set->samples + i;
-      w_avg += sample->weight;
-      sample->weight /= new_total;
-      set->n_effective += sample->weight*sample->weight;
+      // Normalize weights
+      for (i = 0; i < set->sample_count; i++)
+      {
+        sample = set->samples + i;
+        w_avg += sample->weight;
+        sample->weight /= total;
+        set->n_effective += sample->weight*sample->weight;
+      }
     }
     // Update running averages of likelihood of samples (Prob Rob p258)
     w_avg /= set->sample_count;

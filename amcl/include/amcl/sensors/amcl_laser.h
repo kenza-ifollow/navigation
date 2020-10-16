@@ -91,7 +91,7 @@ class AMCLLaser : public AMCLSensor
 
   // Update the filter based on the sensor model.  Returns true if the
   // filter has been updated.
-  public: virtual bool UpdateSensor(pf_t *pf, AMCLSensorData *data, geometry_msgs::PoseWithCovarianceStamped landmark_loc_pose = geometry_msgs::PoseWithCovarianceStamped());
+  public: virtual bool UpdateSensor(pf_t *pf, AMCLSensorData *data,bool amcl_augmentation, geometry_msgs::PoseWithCovarianceStamped landmark_loc_pose = geometry_msgs::PoseWithCovarianceStamped());
 
   // Set the laser's pose after construction
   public: void SetLaserPose(pf_vector_t& laser_pose)
